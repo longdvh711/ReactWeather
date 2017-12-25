@@ -1,11 +1,14 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   Platform,
   ScrollView,
+  Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import { ListItem } from 'react-native-elements';
+import { ListItem, SearchBar } from 'react-native-elements';
 import { StackNavigator } from 'react-navigation';
 
 class LoadingIndicator extends React.Component {
@@ -44,7 +47,10 @@ class CityWeather extends React.Component {
         onPress={
           this.props.onPress ? this.props.onPress() : null
         }
-        hideChevron={Platform.OS !== 'ios'}
+        rightIcon={ {name: 'delete', style: {color: '#c2c2a3', marginLeft: 8}} }
+        onPressRightIcon={
+          this.props.deleteItem ? () => this.props.deleteItem(this.props.index) : null
+        }
       />
     );
   }
@@ -52,7 +58,17 @@ class CityWeather extends React.Component {
 
 class MasterScreen extends React.Component {
   static navigationOptions = {
-    title: 'Weather',
+    header:
+        <View>
+          <SearchBar
+            ref={search => this.search = search}
+            containerStyle={ {backgroundColor: 'white'} }
+            inputStyle={ {backgroundColor: 'white'} }
+            lightTheme
+            round
+            clearIcon
+            placeholder='Type Here...'/>
+        </View>
   };
 
   constructor() {
@@ -69,8 +85,9 @@ class MasterScreen extends React.Component {
         { name: 'Singapore', id: 1880252 },
         { name: 'Beijing', id: 1816670 },
         { name: 'Sydney', id: 6619279 },
-        { name: 'São Paulo', id: 3448439 },
+        { name: 'Sao Paulo', id: 3448439 },
       ],
+      searchTerm: '',
       isLoading: true,
     };
   }
@@ -104,6 +121,25 @@ class MasterScreen extends React.Component {
       });
   }
 
+  componentWillMount () {
+      this.keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', this._keyboardDidShow);
+      this.keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', this._keyboardDidHide);
+  }
+
+  _keyboardDidShow () {
+
+  }
+
+  _keyboardDidHide () {
+    this.search.clearText();
+  }
+
+  deleteItem = (index) => {
+    let cities = this.state.cities;
+    cities.splice(index, 1);
+    this.setState({cities: cities});
+  }
+
   render() {
     if (this.state.isLoading) {
       return <LoadingIndicator />;
@@ -111,7 +147,7 @@ class MasterScreen extends React.Component {
 
     return (
       <ScrollView style={{ backgroundColor: 'white' }}>
-        {this.state.cities.map(city => (
+        {this.state.cities.map( (city, index) => (
           <CityWeather
             key={city.id}
             name={city.name}
@@ -122,7 +158,10 @@ class MasterScreen extends React.Component {
               () =>
                 this.props.navigation.navigate('Detail', {
                   cityId: city.id,
-                })}
+                })
+            }
+            index={index}
+            deleteItem={this.deleteItem}
           />
         ))}
       </ScrollView>
