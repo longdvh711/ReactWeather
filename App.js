@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   ActivityIndicator,
   Keyboard,
   Platform,
@@ -10,6 +11,7 @@ import {
 } from 'react-native';
 import { ListItem, SearchBar } from 'react-native-elements';
 import { StackNavigator } from 'react-navigation';
+import cityList from './city.json'
 
 class LoadingIndicator extends React.Component {
   render() {
@@ -33,7 +35,7 @@ class CityWeather extends React.Component {
       <ListItem
         title={this.props.name}
         subtitle={
-          this.props.weather ? this.props.weather : 'TBD'
+          this.props.weather ? this.props.weather : 'UND'
         }
         badge={{
           value: this.props.temp
@@ -57,19 +59,9 @@ class CityWeather extends React.Component {
 }
 
 class MasterScreen extends React.Component {
-  static navigationOptions = {
-    header:
-        <View>
-          <SearchBar
-            ref={search => this.search = search}
-            containerStyle={ {backgroundColor: 'white'} }
-            inputStyle={ {backgroundColor: 'white'} }
-            lightTheme
-            round
-            clearIcon
-            placeholder='Type Here...'/>
-        </View>
-  };
+  static navigationOptions = ({ navigation, screenProps }) => ({
+    title: 'Weather App'
+  });
 
   constructor() {
     super();
@@ -87,8 +79,8 @@ class MasterScreen extends React.Component {
         { name: 'Sydney', id: 6619279 },
         { name: 'Sao Paulo', id: 3448439 },
       ],
-      searchTerm: '',
       isLoading: true,
+      term: '',
     };
   }
 
@@ -96,7 +88,6 @@ class MasterScreen extends React.Component {
     const ids = this.state.cities
       .map(city => city.id)
       .toString();
-
     fetch(
       `http://api.openweathermap.org/data/2.5/group?units=metric&APPID=b1b35bba8b434a28a0be2a3e1071ae5b&id=${ids}`
     )
@@ -122,16 +113,51 @@ class MasterScreen extends React.Component {
   }
 
   componentWillMount () {
-      this.keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', this._keyboardDidShow);
-      this.keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', this._keyboardDidHide);
-  }
-
-  _keyboardDidShow () {
-
+    this.keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', this._keyboardDidHide.bind(this));
   }
 
   _keyboardDidHide () {
     this.search.clearText();
+    this.setState({term: ''});
+  }
+
+  searchItem = () => {
+    let cities = this.state.cities;
+    let term = this.state.term;console.log('text', term);
+    let filteredCity = cityList.filter((city) => {
+      return city.name.toLowerCase().match(term);
+    });
+    console.log('filteredCity', filteredCity);
+
+    if (!term || term === '') {
+      console.log('Input empty');
+    } else if (!Array.isArray(filteredCity) || (Array.isArray(filteredCity) && filteredCity.length < 1) ) {
+      Alert.alert('Can not find the city.');
+    } else if(Array.isArray(filteredCity)) {
+      let city = filteredCity[0];
+      let id = city.id;
+      fetch(
+        `http://api.openweathermap.org/data/2.5/weather?APPID=b1b35bba8b434a28a0be2a3e1071ae5b&units=metric&id=${id}`
+      )
+      .then(res => res.json())
+      .then(city => {
+          return {
+            id: city.id,
+            name: city.name,
+            temp: city.main.temp,
+            icon: 'http://openweathermap.org/img/w/' +
+              city.weather[0].icon +
+              '.png',
+            weather: city.weather[0].main,
+          };
+      })
+      .then(result => {
+        cities.push(result);
+        this.setState({
+          cities
+        });
+      });
+    }
   }
 
   deleteItem = (index) => {
@@ -147,6 +173,17 @@ class MasterScreen extends React.Component {
 
     return (
       <ScrollView style={{ backgroundColor: 'white' }}>
+        <View>
+          <SearchBar
+            ref={search => this.search = search}
+            containerStyle={ {backgroundColor: 'white'} }
+            inputStyle={ {backgroundColor: 'white'} }
+            onChangeText={ (term) => this.setState({term: term}) }
+            onSubmitEditing={ () => this.searchItem() }
+            lightTheme
+            round
+            placeholder='Type Here...'/>
+        </View>
         {this.state.cities.map( (city, index) => (
           <CityWeather
             key={city.id}
